@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -24,7 +23,7 @@ func failOnError(err error, msg string) {
 func main() {
 	t := opentracer.New(
 		tracer.WithAgentAddr("127.0.0.1:8126"),
-		tracer.WithServiceName("receive"),
+		tracer.WithServiceName("receive2"),
 		tracer.WithGlobalTag("env", "nicolas-pylon"),
 	)
 	opentracing.SetGlobalTracer(t)
@@ -39,7 +38,7 @@ func main() {
 	defer ch.Close()
 
 	err = ch.ExchangeDeclare(
-		"logs",   // name
+		"logs2",  // name
 		"fanout", // type
 		true,     // durable
 		false,    // auto-deleted
@@ -50,19 +49,19 @@ func main() {
 	failOnError(err, "Failed to declare an exchange")
 
 	q, err := ch.QueueDeclare(
-		"",    // name
-		false, // durable
-		false, // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
+		"logs2", // name
+		false,   // durable
+		false,   // delete when unused
+		true,    // exclusive
+		false,   // no-wait
+		nil,     // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 
 	err = ch.QueueBind(
-		q.Name, // queue name
-		"",     // routing key
-		"logs", // exchange
+		q.Name,  // queue name
+		"",      // routing key
+		"logs2", // exchange
 		false,
 		nil)
 	failOnError(err, "Failed to bind a queue")
@@ -85,10 +84,10 @@ func main() {
 			log.Printf(" [x] %s", d.Body)
 			spCtx, _ := amqptracer.Extract(d.Headers)
 			sp := opentracing.StartSpan(
-				"ConsumeMessage",
+				"ConsumeMessage Logs2",
 				opentracing.ChildOf(spCtx),
 			)
-			ctx := opentracing.ContextWithSpan(context.Background(), sp)
+
 			fmt.Println("Headers")
 			fmt.Println("parentID : " + d.Headers["x-datadog-parent-id"].(string))
 			fmt.Println("trace    : " + d.Headers["x-datadog-trace-id"].(string))
@@ -98,42 +97,8 @@ func main() {
 			fmt.Println("SpanID   : " + strconv.FormatUint(sp.Context().(ddtrace.SpanContext).SpanID(), 10))
 			sp.SetTag("traceID", strconv.FormatUint(sp.Context().(ddtrace.SpanContext).TraceID(), 10))
 			time.Sleep(2 * time.Second)
-			// sp.Finish()
-			// PUB AGAIN
-			//If we were to use the topic
-			// spCtx, _ := amqptracer.Extract(d.Headers)
-			// spPub := opentracing.StartSpan(
-			// 	"ConsumeMessage",
-			// 	opentracing.ChildOf(spCtx),
-			// )
-			spPub := opentracing.SpanFromContext(ctx)
-			//panic: assignment to entry in nil map
-			msg := amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(d.Body),
-				Headers:     amqp.Table{},
-			}
+			sp.Finish()
 
-			if err := amqptracer.Inject(spPub, msg.Headers); err != nil {
-				fmt.Println(err)
-			}
-
-			fmt.Println("parent" + msg.Headers["x-datadog-parent-id"].(string))
-			fmt.Println("trace" + msg.Headers["x-datadog-trace-id"].(string))
-			spPub.SetTag("traceID", strconv.FormatUint(sp.Context().(ddtrace.SpanContext).TraceID(), 10))
-			spPub.Finish()
-			// sp.Finish()
-
-			err = ch.Publish(
-				"logs2", // exchange
-				"",      // routing key
-				false,   // mandatory
-				false,   // immediate
-				msg,
-			)
-			failOnError(err, "Failed to publish a message")
-
-			log.Printf(" [x] Sent %s", d.Body)
 		}
 	}()
 
