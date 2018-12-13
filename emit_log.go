@@ -73,7 +73,7 @@ func main() {
 	fmt.Println("parent" + msg.Headers["x-datadog-parent-id"].(string))
 	fmt.Println("trace" + msg.Headers["x-datadog-trace-id"].(string))
 	sp.SetTag("traceID", strconv.FormatUint(sp.Context().(ddtrace.SpanContext).TraceID(), 10))
-	defer sp.Finish()
+	sp.Finish()
 	// FINISH TRACING
 
 	err = ch.Publish(
