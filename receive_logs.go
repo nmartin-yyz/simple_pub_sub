@@ -50,12 +50,12 @@ func main() {
 	failOnError(err, "Failed to declare an exchange")
 
 	q, err := ch.QueueDeclare(
-		"",    // name
-		false, // durable
-		false, // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
+		"logs", // name
+		false,  // durable
+		false,  // delete when unused
+		true,   // exclusive
+		false,  // no-wait
+		nil,    // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 
